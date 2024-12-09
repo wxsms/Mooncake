@@ -16,39 +16,48 @@
 REPO_ROOT=`pwd`
 GITHUB_PROXY="https://mirror.ghproxy.com/github.com"
 
-sudo apt-get install -y build-essential \
-                        cmake \
-                        libibverbs-dev \
-                        libgoogle-glog-dev \
-                        libgtest-dev \
-                        libjsoncpp-dev \
-                        libnuma-dev \
-                        libpython3-dev \
-                        libboost-all-dev \
-                        libssl-dev \
-                        libgrpc-dev \
-                        libgrpc++-dev \
-                        libprotobuf-dev \
-                        protobuf-compiler-grpc \
-                        pybind11-dev
+#apt update && apt install -y build-essential \
+#                        cmake \
+#                        libibverbs-dev \
+#                        libgoogle-glog-dev \
+#                        libgtest-dev \
+#                        libjsoncpp-dev \
+#                        libnuma-dev \
+#                        libpython3-dev \
+#                        libboost-all-dev \
+#                        libssl-dev \
+#                        libgrpc-dev \
+#                        libgrpc++-dev \
+#                        libprotobuf-dev \
+#                        protobuf-compiler-grpc \
+#                        pybind11-dev
 
 echo "*** Download and installing [cpprest sdk] ***"
-mkdir ${REPO_ROOT}/thirdparties
+#mkdir ${REPO_ROOT}/thirdparties
 cd ${REPO_ROOT}/thirdparties
-git clone ${GITHUB_PROXY}/microsoft/cpprestsdk.git
+#git clone ${GITHUB_PROXY}/microsoft/cpprestsdk.git
 cd cpprestsdk
 mkdir -p build
 cd build
 cmake .. -DCPPREST_EXCLUDE_WEBSOCKETS=ON
-make -j$(nproc) && sudo make install
+make -j4 && make install
 
 echo "*** Download and installing [etcd-cpp-apiv3] ***"
 cd ${REPO_ROOT}/thirdparties
-git clone ${GITHUB_PROXY}/etcd-cpp-apiv3/etcd-cpp-apiv3.git
+#git clone ${GITHUB_PROXY}/etcd-cpp-apiv3/etcd-cpp-apiv3.git
 cd etcd-cpp-apiv3
 mkdir -p build
 cd build
 cmake ..
-make -j$(nproc) && sudo make install
+make -j4 && make install
+
+echo "*** Download and installing [pybind11] ***"
+cd ${REPO_ROOT}/thirdparties
+#git clone ${GITHUB_PROXY}/etcd-cpp-apiv3/etcd-cpp-apiv3.git
+cd pybind11
+mkdir -p build
+cd build
+cmake ..
+make -j4 && make install
 
 echo "*** Dependencies Installed! ***"
