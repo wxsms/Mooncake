@@ -199,17 +199,17 @@ void WorkerPool::performPostSend(int thread_id) {
         if (entry.second.empty()) continue;
 
         if (entry.second[0]->target_id == LOCAL_SEGMENT_ID) {
-            LOG(INFO) << "using local transfer";
+            //LOG(INFO) << "using local transfer";
             for (auto &slice : entry.second) {
                 LOG_ASSERT(slice->target_id == LOCAL_SEGMENT_ID);
 #ifdef USE_CUDA
                 cudaMemcpy((void *)slice->rdma.dest_addr, slice->source_addr,
                            slice->length, cudaMemcpyDefault);
-                LOG(INFO) << "using cudaMemcpy transfer";
+                //LOG(INFO) << "using cudaMemcpy transfer";
 #else
                 memcpy((void *)slice->rdma.dest_addr, slice->source_addr,
                        slice->length);
-                LOG(INFO) << "using memcpy transfer";
+                //LOG(INFO) << "using memcpy transfer";
 #endif
                 slice->markSuccess();
             }
@@ -217,7 +217,7 @@ void WorkerPool::performPostSend(int thread_id) {
             entry.second.clear();
             continue;
         } else {
-            LOG(INFO) << "not using local transfer";
+            //LOG(INFO) << "not using local transfer";
         }
 
 #ifdef USE_FAKE_POST_SEND
