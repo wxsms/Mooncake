@@ -3,6 +3,7 @@
 
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda_bf16.h>
+#include <cuda.h>
 #include <cuda_runtime.h>
 #include <fstream>
 #include <mooncake_ibgda/memheap.h>
@@ -90,6 +91,11 @@ struct MooncakeEpBuffer {
     ibv_pd* pd;
     mlx5dv_pd mpd;
     memheap* ctrl_buf_heap;
+
+    // Fabric memory (MNNVL)
+    bool use_fabric_mem_ = false;
+    CUmemGenericAllocationHandle fabric_mem_handle_{};
+    size_t fabric_alloc_size_ = 0;
 
     // NVLink P2P
     int32_t* nvlink_available = nullptr;
