@@ -7,7 +7,9 @@ namespace mooncake {
 // Check if all GPUs support fabric memory handles (MNNVL).
 // Mirrors the check in nvlink_transport.cpp.
 static bool supportFabricMem() {
-    if (getenv("MC_USE_NVLINK_IPC")) return false;
+    const char *nvlink_ipc = getenv("MC_USE_NVLINK_IPC");
+
+    bool fabric_enabled = nvlink_ipc && strcmp(nvlink_ipc, "0") == 0;
 
     int num_devices = 0;
     cudaError_t err = cudaGetDeviceCount(&num_devices);
