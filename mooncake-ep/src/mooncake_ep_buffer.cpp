@@ -7,7 +7,7 @@ namespace mooncake {
 // Check if all GPUs support fabric memory handles (MNNVL).
 // Mirrors the check in nvlink_transport.cpp.
 static bool supportFabricMem() {
-    const char *nvlink_ipc = getenv("MC_USE_NVLINK_IPC");
+    const char* nvlink_ipc = getenv("MC_USE_NVLINK_IPC");
 
     bool fabric_enabled = nvlink_ipc && strcmp(nvlink_ipc, "0") == 0;
     if (!fabric_enabled) return false;
