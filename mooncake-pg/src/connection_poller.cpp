@@ -2,6 +2,7 @@
 #include <connection_poller.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda.h>
+#include <cuda_alike.h>
 #include <cuda_runtime.h>
 #include <torch/torch.h>
 #include <atomic>
@@ -40,6 +41,7 @@ static bool supportFabricMem() {
 }
 ConnectionContext::ConnectionContext(int backendIndex, int rank, int size,
                                      uint64_t* local2global_rank_map,
+                                     std::string location,
                                      c10::intrusive_ptr<::c10d::Store> store,
                                      std::shared_ptr<TransferGroupMeta> meta,
                                      std::shared_ptr<P2PProxy> p2p_proxy,
@@ -65,12 +67,12 @@ ConnectionContext::ConnectionContext(int backendIndex, int rank, int size,
     warmup_send_region_ = new int32_t[kMaxNumRanks];
     warmup_send_region_[0] = 1;
     int rc = engine_->registerLocalMemory(
-        warmup_send_region_, kMaxNumRanks * sizeof(int32_t), kWildcardLocation);
+        warmup_send_region_, kMaxNumRanks * sizeof(int32_t), location);
     TORCH_CHECK(!rc, "Failed to register local memory for context.");
 
     warmup_recv_region_ = new int32_t[kMaxNumRanks]{};
-    rc = engine_->registerLocalMemory(
-        warmup_recv_region_, kMaxNumRanks * sizeof(int32_t), kWildcardLocation);
+    rc = engine_->registerLocalMemory(warmup_recv_region_,
+                                      kMaxNumRanks * sizeof(int32_t), location);
     TORCH_CHECK(!rc, "Failed to register local memory for context.");
 }
 
