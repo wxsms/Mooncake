@@ -295,10 +295,11 @@ enum class ErrorCode : int32_t {
     SERIALIZE_FAIL = -1501,         ///< Serialization failed.
     DESERIALIZE_FAIL = -1502,       ///< Deserialization failed.
     PERSISTENT_FAIL = -1503,        ///< Persistent failed.
-    // Task errors (Range: -1400 to -1499)
+    // Task and job errors (Range: -1400 to -1499)
     TASK_NOT_FOUND = -1400,  ///< Task not found.
     TASK_PENDING_LIMIT_EXCEEDED =
-        -1401,  ///< Total pending tasks exceed the limit.
+        -1401,              ///< Total pending tasks exceed the limit.
+    JOB_NOT_FOUND = -1402,  ///< Job not found.
 };
 
 int32_t toInt(ErrorCode errorCode) noexcept;
