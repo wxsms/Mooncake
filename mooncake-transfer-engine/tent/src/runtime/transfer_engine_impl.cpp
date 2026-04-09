@@ -249,9 +249,9 @@ Status TransferEngineImpl::setupLocalSegment() {
     segment->name = local_segment_name_;
     segment->type = SegmentType::Memory;
     segment->machine_id = getMachineID();
+    segment->rpc_server_addr = buildIpAddrWithPort(hostname_, port_, ipv6_);
     auto& detail = std::get<MemorySegmentDesc>(segment->detail);
     detail.topology = *(topology_.get());
-    detail.rpc_server_addr = buildIpAddrWithPort(hostname_, port_, ipv6_);
     local_segment_tracker_ = std::make_unique<SegmentTracker>(segment);
     return manager.synchronizeLocal();
 }
@@ -954,18 +954,20 @@ RequestBoundaryInfo resolveRequestBoundary(ControlService* metadata,
             toBufferKey(local_desc->findBuffer(source_addr, request.length));
     }
 
-    SegmentDesc* target_desc = nullptr;
-    if (request.target_id == LOCAL_SEGMENT_ID) {
-        target_desc = local_desc;
-    } else {
-        auto status = metadata->segmentManager().getRemoteCached(
-            target_desc, request.target_id);
-        if (!status.ok()) return boundary;
-    }
-    if (target_desc) {
-        boundary.target_key = toBufferKey(
-            target_desc->findBuffer(request.target_offset, request.length));
-    }
+    metadata->segmentManager().withCachedSegment(
+        request.target_id, [&](SegmentDesc* target_desc) {
+            auto buffer =
+                target_desc->findBuffer(request.target_offset, request.length);
+
+            if (!buffer) {
+                boundary.target_key = std::nullopt;
+                return Status::NeedsRefreshCache(
+                    "Requested address is not in registered buffer" LOC_MARK);
+            }
+
+            boundary.target_key = toBufferKey(buffer);
+            return Status::OK();
+        });
     return boundary;
 }
 
@@ -983,19 +985,27 @@ std::vector<RequestBoundaryInfo> resolveRequestBoundaries(
 
 void TransferEngineImpl::findStagingPolicy(const Request& request,
                                            std::vector<std::string>& policy) {
-    SegmentDesc* desc;
     if (request.target_id == LOCAL_SEGMENT_ID) return;
-    auto status =
-        metadata_->segmentManager().getRemoteCached(desc, request.target_id);
+
+    SegmentDesc* desc = nullptr;
+    BufferDesc* entry = nullptr;
+    auto status = metadata_->segmentManager().withCachedSegment(
+        request.target_id, [&](SegmentDesc* segment) {
+            desc = segment;
+            entry = desc->findBuffer(request.target_offset, request.length);
+            if (!entry)
+                return Status::NeedsRefreshCache(
+                    "Requested address is not in registered buffer" LOC_MARK);
+            return Status::OK();
+        });
+
     if (!status.ok()) return;
-    auto entry = desc->findBuffer(request.target_offset, request.length);
-    if (!entry) return;
     auto local =
         Platform::getLoader().getLocation(request.source, 1)[0].location;
     auto remote = entry->location;
     auto local_mtype = getTypeEnum(LocationParser(local).type());
     auto remote_mtype = getTypeEnum(LocationParser(remote).type());
-    auto server_addr = desc->getMemory().rpc_server_addr;
+    auto server_addr = desc->rpc_server_addr;
     policy.clear();
     // case 1: rdma without gpu direct
     if (transport_list_[RDMA] && transport_list_[NVLINK]) {
@@ -1230,13 +1240,22 @@ Status TransferEngineImpl::sendNotification(SegmentID target_id,
 }
 
 Status TransferEngineImpl::probePeerAliveByID(SegmentID target_id) {
-    SegmentDesc* desc = nullptr;
-    CHECK_STATUS(metadata_->segmentManager().getRemoteCached(desc, target_id));
-    auto server_addr = desc->getMemory().rpc_server_addr;
-    if (server_addr.empty()) {
-        return Status::InvalidArgument("Requested segment type error" LOC_MARK);
-    }
-    return ControlClient::probe(server_addr);
+    return metadata_->segmentManager().withCachedSegment(
+        target_id, [&](SegmentDesc* segment) {
+            auto rpc_server_addr = segment->rpc_server_addr;
+            if (rpc_server_addr.empty()) {
+                return Status::NeedsRefreshCache(
+                    "Empty RPC server addr" LOC_MARK);
+            }
+            auto status = ControlClient::probe(rpc_server_addr);
+            if (status.IsRpcServiceError()) {
+                // Perhaps rpc_server_addr can be updated in the future
+                return Status::NeedsRefreshCache(
+                    "RPC service error: " + std::string{status.message()} +
+                    LOC_MARK);
+            }
+            return status;
+        });
 }
 
 Status TransferEngineImpl::receiveNotification(
