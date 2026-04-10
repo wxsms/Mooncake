@@ -756,8 +756,38 @@ std::vector<std::shared_ptr<BufferHandle>> DummyClient::batch_get_buffer(
 
 int64_t DummyClient::get_into(const std::string& key, void* buffer,
                               size_t size) {
-    // TODO: implement this function
-    return -1;
+    uint64_t buf_addr = reinterpret_cast<uint64_t>(buffer);
+    auto result = invoke_rpc<&RealClient::get_into_range_shm_helper,
+                             tl::expected<int64_t, ErrorCode>>(
+        key, buf_addr, 0, 0, size, client_id_);
+    if (!result) {
+        return static_cast<int64_t>(toInt(result.error()));
+    }
+    return to_py_ret(*result);
+}
+
+std::vector<std::vector<std::vector<int64_t>>> DummyClient::get_into_ranges(
+    const std::vector<void*>& buffers,
+    const std::vector<std::vector<std::string>>& all_keys,
+    const std::vector<std::vector<std::vector<size_t>>>& all_dst_offsets,
+    const std::vector<std::vector<std::vector<size_t>>>& all_src_offsets,
+    const std::vector<std::vector<std::vector<size_t>>>& all_sizes) {
+    std::vector<uint64_t> dummy_buffers = void_ptrs_to_u64(buffers);
+    auto internal_results =
+        invoke_rpc<&RealClient::get_into_ranges_shm_helper,
+                   std::vector<std::vector<
+                       std::vector<tl::expected<int64_t, ErrorCode>>>>>(
+            dummy_buffers, all_keys, all_dst_offsets, all_src_offsets,
+            all_sizes, device_id_, client_id_);
+
+    if (!internal_results) {
+        LOG(ERROR) << "get_into_ranges RPC failed";
+        return build_ranged_read_error_results(buffers.size(), all_keys,
+                                               all_dst_offsets,
+                                               internal_results.error());
+    }
+
+    return convert_ranged_read_results(internal_results.value());
 }
 
 std::string DummyClient::get_hostname() const {

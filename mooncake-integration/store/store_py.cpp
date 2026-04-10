@@ -2033,15 +2033,35 @@ PYBIND11_MODULE(store, m) {
                 // Get data directly into user-provided buffer
                 void *buffer = reinterpret_cast<void *>(buffer_ptr);
                 py::gil_scoped_release release;
-                if (self.use_dummy_client_) {
-                    LOG(ERROR) << "get_into is not supported for dummy client "
-                                  "now";
-                    return (int64_t)-1;
-                }
                 return self.store_->get_into(key, buffer, size);
             },
             py::arg("key"), py::arg("buffer_ptr"), py::arg("size"),
             "Get object data directly into a pre-allocated buffer")
+        .def(
+            "get_into_ranges",
+            [](MooncakeStorePyWrapper &self,
+               const std::vector<uintptr_t> &buffer_ptrs,
+               const std::vector<std::vector<std::string>> &all_keys,
+               const std::vector<std::vector<std::vector<size_t>>>
+                   &all_dst_offsets,
+               const std::vector<std::vector<std::vector<size_t>>>
+                   &all_src_offsets,
+               const std::vector<std::vector<std::vector<size_t>>> &all_sizes) {
+                std::vector<void *> buffers;
+                buffers.reserve(buffer_ptrs.size());
+                for (uintptr_t ptr : buffer_ptrs) {
+                    buffers.push_back(reinterpret_cast<void *>(ptr));
+                }
+                py::gil_scoped_release release;
+                return self.store_->get_into_ranges(buffers, all_keys,
+                                                    all_dst_offsets,
+                                                    all_src_offsets, all_sizes);
+            },
+            py::arg("buffer_ptrs"), py::arg("all_keys"),
+            py::arg("all_dst_offsets"), py::arg("all_src_offsets"),
+            py::arg("all_sizes"),
+            "Get multiple byte ranges from multiple objects into multiple "
+            "pre-allocated buffers")
         .def(
             "batch_get_into",
             [](MooncakeStorePyWrapper &self,
